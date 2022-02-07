@@ -1,0 +1,6 @@
+4 5 > dump
+5 4 > dump
+5 4 == dump
+5 5 == dump
+4 5 < dump
+5 4 < dump

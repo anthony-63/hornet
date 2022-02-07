@@ -6,33 +6,20 @@ data OP_TYPE =
     OP_PUSH | 
     OP_PLUS |
     OP_MINUS | 
-    OP_DUMP
+    OP_MULTIPLY |
+    OP_DIVIDE |
+    OP_DUP |
+    OP_DUMP |
+    OP_DUMPALL |
+    OP_SWAP |
+    OP_LT |
+    OP_GT |
+    OP_EQ 
     deriving (Enum)
 type OP = (OP_TYPE, Integer)
 type Program = [OP]
 
-push :: Integer -> OP
-push x = (OP_PUSH, x)
-plus :: OP
-plus = (OP_PLUS, 0)
-minus :: OP
-minus = (OP_MINUS, 0)
-dump :: OP
-dump = (OP_DUMP, 0)
 
-
-
-program :: Program
-program = [
-    push 34, 
-    push 35, 
-    plus, 
-    dump,
-    push 500,
-    push 80,
-    minus,
-    dump
-    ]
 
 popSim :: StateT [Integer] IO Integer
 popSim = do
@@ -49,6 +36,16 @@ dumpSim = do
     a <- popSim
     liftIO $ print a
 
+dumpAllSim :: StateT [Integer] IO ()
+dumpAllSim = do 
+    state <- get
+    liftIO $ putStr ("[" ++ show (head state) ++ "] ")
+    liftIO $ print $ reverse state
+
+checkBool :: Bool -> Integer
+checkBool True = 1
+checkBool False = 0
+
 simulate :: Program -> StateT [Integer] IO ()
 simulate = mapM_ f
     where
@@ -62,19 +59,68 @@ simulate = mapM_ f
             b <- popSim
             a <- popSim
             pushSim(a - b)
+        f (OP_MULTIPLY, _) = do
+            b <- popSim
+            a <- popSim
+            pushSim(a * b)
+        f (OP_DIVIDE, _) = do
+            b <- popSim
+            a <- popSim
+            pushSim(quot a b)
+        f (OP_DUP, _) = do 
+            a <- popSim
+            pushSim a
+            pushSim a
         f (OP_DUMP, _) = dumpSim
-
+        f (OP_DUMPALL, _) = dumpAllSim
+        f (OP_SWAP, _) = do
+            a <- popSim
+            b <- popSim
+            pushSim a
+            pushSim b
+        f (OP_GT, _) = do
+            b <- popSim
+            a <- popSim
+            pushSim $ checkBool (a > b)
+        f (OP_LT, _) = do
+            b <- popSim
+            a <- popSim
+            pushSim $ checkBool (a < b)
+        f (OP_EQ, _) = do
+            a <- popSim
+            b <- popSim
+            pushSim $ checkBool (a == b)
+            
 iostrFromFile :: FilePath -> IO String
 iostrFromFile f = do
     readFile f
-    
+
+checkS :: String -> OP
+checkS "+" = (OP_PLUS, 0)
+checkS "-" = (OP_MINUS, 0)
+checkS "*" = (OP_MULTIPLY, 0) 
+checkS "/" = (OP_DIVIDE, 0)
+checkS "dup" = (OP_DUP, 0)
+checkS "dump" = (OP_DUMP, 0)
+checkS "dumpall" = (OP_DUMPALL, 0)
+checkS "swap" = (OP_SWAP, 0)
+checkS ">" = (OP_LT, 0)
+checkS "<" = (OP_GT, 0)
+checkS "==" = (OP_EQ, 0)
+
+checkS x = (OP_PUSH, read x :: Integer)
+
+parseStr :: String -> Program
+parseStr x = do
+    let 
+        repl '\n' = ' '
+        repl c = c
+    a <- words $ map repl x
+    map checkS [a]
 
 main :: IO ()
 main = do
     args <- getArgs
-    result <- runStateT (simulate program) []
     o <- iostrFromFile $ head args
-    let 
-        repl '\n' = ' '
-        repl c = c
-    print $ map repl o
+    result <- runStateT (simulate $ parseStr o) []
+    putStr ""
