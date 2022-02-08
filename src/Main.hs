@@ -2,6 +2,8 @@ import Control.Monad.State.Strict
 import System.Environment
 import Data.Functor.Identity
 import Data.List
+import System.Exit
+import Control.Exception (throw)
 data OP_TYPE = 
     OP_PUSH | 
     OP_PLUS |
@@ -14,7 +16,8 @@ data OP_TYPE =
     OP_SWAP |
     OP_LT |
     OP_GT |
-    OP_EQ 
+    OP_EQ |
+    OP_ERR
     deriving (Enum)
 type OP = (OP_TYPE, Integer)
 type Program = [OP]
@@ -46,7 +49,7 @@ checkBool :: Bool -> Integer
 checkBool True = 1
 checkBool False = 0
 
-simulate :: Program -> StateT [Integer] IO ()
+simulate :: Program -> StateT [Integer] IO () --simulation
 simulate = mapM_ f
     where
         f :: OP -> StateT [Integer] IO ()
@@ -90,10 +93,18 @@ simulate = mapM_ f
             a <- popSim
             b <- popSim
             pushSim $ checkBool (a == b)
+        f (OP_ERR, _) = error "This should never be reached... OP_ERR"
             
 iostrFromFile :: FilePath -> IO String
 iostrFromFile f = do
     readFile f
+
+isNumber :: String -> Bool
+isNumber str =
+    case reads str :: [(Double, String)] of
+      [(_, "")] -> True
+      _         -> False
+
 
 checkS :: String -> OP
 checkS "+" = (OP_PLUS, 0)
@@ -108,9 +119,12 @@ checkS ">" = (OP_LT, 0)
 checkS "<" = (OP_GT, 0)
 checkS "==" = (OP_EQ, 0)
 
-checkS x = (OP_PUSH, read x :: Integer)
+checkS x = do
+    if isNumber x then (OP_PUSH, read x :: Integer)
+    else do
+        errorWithoutStackTrace $ "Invalid word '" ++ x ++ "'"
 
-parseStr :: String -> Program
+parseStr :: String -> Program -- first pass
 parseStr x = do
     let 
         repl '\n' = ' '
@@ -118,9 +132,10 @@ parseStr x = do
     a <- words $ map repl x
     map checkS [a]
 
+
 main :: IO ()
 main = do
     args <- getArgs
-    o <- iostrFromFile $ head args
+    o <- iostrFromFile $ head args 
     result <- runStateT (simulate $ parseStr o) []
     putStr ""
