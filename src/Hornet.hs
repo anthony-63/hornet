@@ -16,7 +16,8 @@ data OP_TYPE =
     OP_SWAP |
     OP_LT |
     OP_GT |
-    OP_EQ
+    OP_EQ |
+    OP_END 
     deriving (Enum)
 type OP = (OP_TYPE, Integer)
 type Program = [OP]
@@ -48,50 +49,59 @@ checkBool :: Bool -> Integer
 checkBool True = 1
 checkBool False = 0
 
-simulate :: Program -> StateT [Integer] IO () --simulation
-simulate = mapM_ f
-    where
-        f :: OP -> StateT [Integer] IO ()
-        f (OP_PUSH, x) = pushSim x
-        f (OP_PLUS, _) = do
-            a <- popSim
-            b <- popSim
-            pushSim(a + b)
-        f (OP_MINUS, _) = do
-            b <- popSim
-            a <- popSim
-            pushSim(a - b)
-        f (OP_MULTIPLY, _) = do
-            b <- popSim
-            a <- popSim
-            pushSim(a * b)
-        f (OP_DIVIDE, _) = do
-            b <- popSim
-            a <- popSim
-            pushSim(quot a b)
-        f (OP_DUP, _) = do 
-            a <- popSim
-            pushSim a
-            pushSim a
-        f (OP_DUMP, _) = dumpSim
-        f (OP_DUMPALL, _) = dumpAllSim
-        f (OP_SWAP, _) = do
-            a <- popSim
-            b <- popSim
-            pushSim a
-            pushSim b
-        f (OP_GT, _) = do
-            b <- popSim
-            a <- popSim
-            pushSim $ checkBool (a > b)
-        f (OP_LT, _) = do
-            b <- popSim
-            a <- popSim
-            pushSim $ checkBool (a < b)
-        f (OP_EQ, _) = do
-            a <- popSim
-            b <- popSim
-            pushSim $ checkBool (a == b)
+length' :: (Num b) => [a] -> b 
+length' [] = 0 
+length' xs = sum [1 | _ <- xs]
+
+simulateOP :: OP -> Int -> StateT [Integer] IO ()
+simulateOP (OP_PUSH, x) _ = pushSim x
+simulateOP (OP_PLUS, _) _ = do
+    a <- popSim
+    b <- popSim
+    pushSim(a + b)
+simulateOP (OP_MINUS, _) _ = do
+    b <- popSim
+    a <- popSim
+    pushSim(a - b)
+simulateOP (OP_MULTIPLY, _) _ = do
+    b <- popSim
+    a <- popSim
+    pushSim(a * b)
+simulateOP (OP_DIVIDE, _) _ = do
+    b <- popSim
+    a <- popSim
+    pushSim(quot a b)
+simulateOP (OP_DUP, _) _ = do 
+    a <- popSim
+    pushSim a
+    pushSim a
+simulateOP (OP_DUMP, _) _ = dumpSim
+simulateOP (OP_DUMPALL, _) _ = dumpAllSim
+simulateOP (OP_SWAP, _) _ = do
+    a <- popSim
+    b <- popSim
+    pushSim a
+    pushSim b
+simulateOP (OP_GT, _) _ = do
+    b <- popSim
+    a <- popSim
+    pushSim $ checkBool (a > b)
+simulateOP (OP_LT, _) _ = do
+    a <- popSim
+    b <- popSim
+    pushSim $ checkBool (a < b)
+simulateOP (OP_EQ, _) _ = do
+    b <- popSim
+    a <- popSim
+    pushSim $ checkBool (a == b)
+simulateOP (OP_END, _) _ = 
+    pushSim 0
+simulate :: Program -> Int -> StateT [Integer] IO () --simulation
+simulate x y = do
+    if y < (length x) then do
+        simulateOP (x !! y) y
+        simulate x $ y + 1
+    else simulateOP (OP_END, 0) y
  
 iostrFromFile :: FilePath -> IO String
 iostrFromFile f = do
@@ -135,5 +145,5 @@ main = do
     args <- getArgs
     o <- iostrFromFile $ head args
     let a = parseStr o
-    result <- runStateT (simulate a) []
+    result <- runStateT (simulate a 0) []
     putStr ""
