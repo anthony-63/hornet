@@ -16,8 +16,7 @@ data OP_TYPE =
     OP_SWAP |
     OP_LT |
     OP_GT |
-    OP_EQ |
-    OP_ERR
+    OP_EQ
     deriving (Enum)
 type OP = (OP_TYPE, Integer)
 type Program = [OP]
@@ -93,8 +92,7 @@ simulate = mapM_ f
             a <- popSim
             b <- popSim
             pushSim $ checkBool (a == b)
-        f (OP_ERR, _) = error "This should never be reached... OP_ERR"
-            
+ 
 iostrFromFile :: FilePath -> IO String
 iostrFromFile f = do
     readFile f
@@ -132,10 +130,10 @@ parseStr x = do
     a <- words $ map repl x
     map checkS [a]
 
-
 main :: IO ()
 main = do
     args <- getArgs
-    o <- iostrFromFile $ head args 
-    result <- runStateT (simulate $ parseStr o) []
+    o <- iostrFromFile $ head args
+    let a = parseStr o
+    result <- runStateT (simulate a) []
     putStr ""
